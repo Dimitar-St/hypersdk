@@ -130,6 +130,7 @@ func CreateInstances(instances []Instance) {
 	for i := range instances {
 		ins := createInstance(app, genesisBytes)
 		instances[i] = ins
+		fmt.Println(*instances[i].Cli)
 	}
 
 	// Verify genesis allocations loaded correctly (do here otherwise test may
@@ -146,6 +147,7 @@ func CreateInstances(instances []Instance) {
 			gomega.Ω(balance).Should(gomega.Equal(alloc.Balance))
 			csupply += alloc.Balance
 		}
+		// For now just skipped metadata, focus on running the tests and make general idea
 		exists, _, supply, _, warp, err := cli.Asset(context.Background(), ids.Empty)
 		gomega.Ω(err).Should(gomega.BeNil())
 		gomega.Ω(exists).Should(gomega.BeTrue())
@@ -230,6 +232,8 @@ func createInstance(app *appSender, genesisBytes []byte) Instance {
 	return instance
 }
 
+// Every VM has its own constructor for the controller. 
+// So this needs to be called before every test of a VM.
 func SetController(ctrl func() *vm.VM) {
 	newController = ctrl
 }

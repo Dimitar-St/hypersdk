@@ -5,6 +5,7 @@ package integration_test
 
 import (
 	"context"
+	"log"
 	"testing"
 	"time"
 
@@ -18,13 +19,10 @@ import (
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/snow/choices"
 	"github.com/ava-labs/avalanchego/snow/consensus/snowman"
-	"github.com/ava-labs/avalanchego/snow/engine/common"
 	"github.com/ava-labs/avalanchego/snow/engine/snowman/block"
-	"github.com/ava-labs/avalanchego/utils/logging"
 	"github.com/ava-labs/avalanchego/utils/set"
 	"github.com/ava-labs/avalanchego/vms/platformvm/warp"
 
-	//"github.com/ava-labs/avalanchego/vms/platforvm/warp"
 	ginkgo "github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 
@@ -35,56 +33,15 @@ import (
 	"github.com/ava-labs/hypersdk/pubsub"
 	"github.com/ava-labs/hypersdk/rpc"
 	hutils "github.com/ava-labs/hypersdk/utils"
-	//"github.com/ava-labs/hypersdk/examples/tokevm/actions"
-	//"github.com/ava-labs/hypersdk/examples/tokevm/auth"
-	//"github.com/ava-labs/hypersdk/examples/tokevm/controller"
-	//"github.com/ava-labs/hypersdk/examples/tokevm/genesis"
-	//"github.com/ava-labs/hypersdk/examples/tokevm/utils"
 )
 
-var (
-	logFactory logging.Factory
-	log        logging.Logger
-)
-
-func init() {
-	logFactory = logging.NewFactory(logging.Config{
-		DisplayLevel: logging.Debug,
-	})
-	l, err := logFactory.Make("main")
-	if err != nil {
-		panic(err)
-	}
-	log = l
-}
 func TestIntegration(t *testing.T) {
-	gomega.RegisterFailHandler(ginkgo.Fail)
-	ginkgo.RunSpecs(t, "toke.Vm.integration test suites")
 	htesting.SetController(controller.New)
 	instances = make([]htesting.Instance, htesting.Vms)
 	htesting.RegisterBeforeSuite(instances)
+	gomega.RegisterFailHandler(ginkgo.Fail)
+	ginkgo.RunSpecs(t, "toke.Vm.integration test suites")
 }
-
-//
-//var (
-//	requestTimeout time.Duration
-//.Vm.            int
-//)
-//
-//func init() {
-//	flag.DurationVar(
-//		&requestTimeout,
-//		"request-timeout",
-//		120*time.Second,
-//		"timeout for transaction issuance and confirmation",
-//	)
-//	flag.IntVar(
-//		.Vm.,
-//		.Vm.",
-//		3,
-//		"number of.Vm. to create",
-//	)
-//}
 
 var (
 	priv    ed25519.PrivateKey
@@ -111,157 +68,6 @@ var (
 	networkID uint32
 	gen       *genesis.Genesis
 )
-
-//type instance struct {
-//	chainID            ids.ID
-//	nodeID             ids.NodeID
-//.Vm.                .Vm.VM
-//	toEngine           chan common.Message
-//	JSONRPCServer      *httptest.Server
-//	TokenJSONRPCServer *httptest.Server
-//	WebSocketServer    *httptest.Server
-//	cli                *rpc.JSONRPCClient // clients for embedded.Vm.
-//	tcli               *trpc.JSONRPCClient
-//}
-
-//var _ = ginkgo.BeforeSuite(func() {
-//	gomega.Ω(hypertesting.Vm.).Should(gomega.BeNumerically(">", 1))
-//
-//	var err error
-//	priv, err = ed25519.GeneratePrivateKey()
-//	gomega.Ω(err).Should(gomega.BeNil())
-//	factory = auth.NewED25519Factory(priv)
-//	rsender = priv.PublicKey()
-//	sender = utils.Address(rsender)
-//	log.Debug(
-//		"generated key",
-//		zap.String("addr", sender),
-//		zap.String("pk", hex.EncodeToString(priv[:])),
-//	)
-//
-//	priv2, err = ed25519.GeneratePrivateKey()
-//	gomega.Ω(err).Should(gomega.BeNil())
-//	factory2 = auth.NewED25519Factory(priv2)
-//	rsender2 = priv2.PublicKey()
-//	sender2 = utils.Address(rsender2)
-//	log.Debug(
-//		"generated key",
-//		zap.String("addr", sender2),
-//		zap.String("pk", hex.EncodeToString(priv2[:])),
-//	)
-//
-//
-//	// create embedded.Vm.
-//	fmt.Printf("Number of embeded.Vm. %v\n", hypertesting.Vm.)
-//	instances = make([]instance, hypertesting.Vm.)
-//
-//	gen = genesis.Default()
-//	gen.MinUnitPrice = chain.Dimensions{1, 1, 1, 1, 1}
-//	gen.MinBlockGap = 0
-//	gen.CustomAllocation = []*genesis.CustomAllocation{
-//		{
-//			Address: sender,
-//			Balance: 10_000_000,
-//		},
-//	}
-//	genesisBytes, err = json.Marshal(gen)
-//	gomega.Ω(err).Should(gomega.BeNil())
-//
-//	networkID = uint32(1)
-//	subnetID := ids.GenerateTestID()
-//	chainID := ids.GenerateTestID()
-//
-//	app := &appSender{}
-//	for i := range instances {
-//		nodeID := ids.GenerateTestNodeID()
-//		sk, err := bls.NewSecretKey()
-//		gomega.Ω(err).Should(gomega.BeNil())
-//		fmt.Println(logFactory)
-//		l, err := logFactory.Make(nodeID.String())
-//		gomega.Ω(err).Should(gomega.BeNil())
-//		dname, err := os.MkdirTemp("", fmt.Sprintf("%s-chainData", nodeID.String()))
-//		gomega.Ω(err).Should(gomega.BeNil())
-//		snowCtx := &snow.Context{
-//			NetworkID:      networkID,
-//			SubnetID:       subnetID,
-//			ChainID:        chainID,
-//			NodeID:         nodeID,
-//			Log:            l,
-//			ChainDataDir:   dname,
-//			Metrics:        metrics.NewOptionalGatherer(),
-//			PublicKey:      bls.PublicFromSecretKey(sk),
-//			WarpSigner:     warp.NewSigner(sk, networkID, chainID),
-//			ValidatorState: &validators.TestState{},
-//		}
-//
-//		toEngine := make(chan common.Message, 1)
-//		db := manager.NewMemDB(avago_version.CurrentDatabase)
-//
-//		v := controller.New()
-//		err = v.Initialize(
-//			context.TODO(),
-//			snowCtx,
-//			db,
-//			genesisBytes,
-//			nil,
-//			[]byte(
-//				`{"parallelism":3, "testMode":true, "logLevel":"debug", "trackedPairs":["*"]}`,
-//			),
-//			toEngine,
-//			nil,
-//			app,
-//		)
-//		gomega.Ω(err).Should(gomega.BeNil())
-//
-//		var hd map[string]*common.HTTPHandler
-//		hd, err = v.CreateHandlers(context.TODO())
-//		gomega.Ω(err).Should(gomega.BeNil())
-//
-//		jsonRPCServer := httptest.NewServer(hd[rpc.JSONRPCEndpoint].Handler)
-//		tjsonRPCServer := httptest.NewServer(hd[trpc.JSONRPCEndpoint].Handler)
-//		webSocketServer := httptest.NewServer(hd[rpc.WebSocketEndpoint].Handler)
-//		instances[i] = instance{
-//			chainID:            snowCtx.ChainID,
-//			nodeID:             snowCtx.NodeID,
-//		.Vm.                 v,
-//			toEngine:           toEngine,
-//			JSONRPCServer:      jsonRPCServer,
-//			TokenJSONRPCServer: tjsonRPCServer,
-//			WebSocketServer:    webSocketServer,
-//			cli:                rpc.NewJSONRPCClient(jsonRPCServer.URL),
-//			tcli:               trpc.NewJSONRPCClient(tjsonRPCServer.URL, snowCtx.NetworkID, snowCtx.ChainID),
-//		}
-//
-//		// Force sync ready (to mimic bootstrapping from genesis)
-//		v.ForceReady()
-//	}
-//
-//	// Verify genesis allocations loaded correctly (do here otherwise test may
-//	// check during and it will be inaccurate)
-//	for _, inst := range instances {
-//		cli := inst.tcli
-//		g, err := cli.Genesis(context.Background())
-//		gomega.Ω(err).Should(gomega.BeNil())
-//
-//		csupply := uint64(0)
-//		for _, alloc := range g.CustomAllocation {
-//			balance, err := cli.Balance(context.Background(), alloc.Address, ids.Empty)
-//			gomega.Ω(err).Should(gomega.BeNil())
-//			gomega.Ω(balance).Should(gomega.Equal(alloc.Balance))
-//			csupply += alloc.Balance
-//		}
-//		exists, metadata, supply, owner, warp, err := cli.Asset(context.Background(), ids.Empty)
-//		gomega.Ω(err).Should(gomega.BeNil())
-//		gomega.Ω(exists).Should(gomega.BeTrue())
-//		gomega.Ω(string(metadata)).Should(gomega.Equal(tconsts.Symbol))
-//		gomega.Ω(supply).Should(gomega.Equal(csupply))
-//		gomega.Ω(owner).Should(gomega.Equal(utils.Address(ed25519.EmptyPublicKey)))
-//		gomega.Ω(warp).Should(gomega.BeFalse())
-//	}
-//
-//	app.instances = instances
-//	color.Blue("created %d.Vm.", hypertesting.Vm.)
-//})
 
 var _ = ginkgo.AfterSuite(func() {
 	for _, iv := range instances {
@@ -1843,7 +1649,8 @@ var _ = ginkgo.Describe("[Tx Processing]", func() {
 			if instances[0].Vm.Mempool().Len(context.Background()) > 0 {
 				break
 			}
-			log.Info("waiting for txs to be restored")
+			//NOTE: For it will be a normal logger. Will remove it
+			log.Println("waiting for txs to be restored")
 			time.Sleep(100 * time.Millisecond)
 		}
 
@@ -1992,39 +1799,4 @@ func expectBlkWithContext(i htesting.Instance) func() []*chain.Result {
 		gomega.Ω(lastAccepted).To(gomega.Equal(blk.ID()))
 		return blk.(*chain.StatelessBlock).Results()
 	}
-}
-
-var _ common.AppSender = &appSender{}
-
-type appSender struct {
-	next      int
-	instances []htesting.Instance
-}
-
-func (app *appSender) SendAppGossip(ctx context.Context, appGossipBytes []byte) error {
-	n := len(app.instances)
-	sender := app.instances[app.next].NodeID
-	app.next++
-	app.next %= n
-	return app.instances[app.next].Vm.AppGossip(ctx, sender, appGossipBytes)
-}
-
-func (*appSender) SendAppRequest(context.Context, set.Set[ids.NodeID], uint32, []byte) error {
-	return nil
-}
-
-func (*appSender) SendAppResponse(context.Context, ids.NodeID, uint32, []byte) error {
-	return nil
-}
-
-func (*appSender) SendAppGossipSpecific(context.Context, set.Set[ids.NodeID], []byte) error {
-	return nil
-}
-
-func (*appSender) SendCrossChainAppRequest(context.Context, ids.ID, uint32, []byte) error {
-	return nil
-}
-
-func (*appSender) SendCrossChainAppResponse(context.Context, ids.ID, uint32, []byte) error {
-	return nil
 }
