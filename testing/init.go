@@ -46,6 +46,7 @@ var (
 	newController func() *vm.VM
 )
 
+
 func init() {
 	logFactory = logging.NewFactory(logging.Config{
 		DisplayLevel: logging.Debug,
@@ -82,15 +83,15 @@ type Instance struct {
 	Tcli               *trpc.JSONRPCClient
 }
 
-func RegisterBeforeSuite(instances []Instance) {
+func RegisterBeforeSuite(instances []Instance, configBytes []byte) {
 	_ = ginkgo.BeforeSuite(func() {
 		gomega.Expect(Vms).Should(gomega.BeNumerically(">", 1))
 
-		CreateInstances(instances)
+		CreateInstances(instances, configBytes)
 	})
 }
 
-func CreateInstances(instances []Instance) {
+func CreateInstances(instances []Instance, configBytes []byte) {
 	var err error
 	priv, err := ed25519.GeneratePrivateKey()
 	gomega.Ω(err).Should(gomega.BeNil())
@@ -128,7 +129,7 @@ func CreateInstances(instances []Instance) {
 
 	app := &appSender{}
 	for i := range instances {
-		ins := createInstance(app, genesisBytes)
+		ins := createInstance(app, genesisBytes, configBytes)
 		instances[i] = ins
 		fmt.Println(*instances[i].Cli)
 	}
@@ -161,7 +162,7 @@ func CreateInstances(instances []Instance) {
 	color.Blue("created %d VMs", Vms)
 }
 
-func createInstance(app *appSender, genesisBytes []byte) Instance {
+func createInstance(app *appSender, genesisBytes []byte, configBytes []byte) Instance {
 	nodeID := ids.GenerateTestNodeID()
 	sk, err := bls.NewSecretKey()
 	gomega.Expect(err).Should(gomega.BeNil())

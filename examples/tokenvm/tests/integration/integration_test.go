@@ -35,13 +35,6 @@ import (
 	hutils "github.com/ava-labs/hypersdk/utils"
 )
 
-func TestIntegration(t *testing.T) {
-	htesting.SetController(controller.New)
-	instances = make([]htesting.Instance, htesting.Vms)
-	htesting.RegisterBeforeSuite(instances)
-	gomega.RegisterFailHandler(ginkgo.Fail)
-	ginkgo.RunSpecs(t, "toke.Vm.integration test suites")
-}
 
 var (
 	priv    ed25519.PrivateKey
@@ -67,7 +60,18 @@ var (
 
 	networkID uint32
 	gen       *genesis.Genesis
+	configBytes = []byte(
+			`{"parallelism":3, "testMode":true, "logLevel":"debug", "trackedPairs":["*"]}`,
+	)
 )
+
+func TestIntegration(t *testing.T) {
+	htesting.SetController(controller.New)
+	instances = make([]htesting.Instance, htesting.Vms)
+	htesting.RegisterBeforeSuite(instances, configBytes)
+	gomega.RegisterFailHandler(ginkgo.Fail)
+	ginkgo.RunSpecs(t, "toke.Vm.integration test suites")
+}
 
 var _ = ginkgo.AfterSuite(func() {
 	for _, iv := range instances {
