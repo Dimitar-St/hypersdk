@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/ava-labs/avalanchego/api/metrics"
+	"net/http/httptest"
 	"github.com/ava-labs/avalanchego/database/manager"
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/snow"
@@ -18,6 +19,7 @@ import (
 	"github.com/ava-labs/avalanchego/utils/set"
 	avago_version "github.com/ava-labs/avalanchego/version"
 	"github.com/ava-labs/avalanchego/vms/platformvm/warp"
+	"github.com/ava-labs/hypersdk/requester"
 	"github.com/ava-labs/hypersdk/rpc"
 	_ "github.com/ava-labs/hypersdk/testing/interfaces"
 	"github.com/ava-labs/hypersdk/vm"
@@ -67,15 +69,34 @@ type Instance struct {
 	ToEngine chan common.Message
 	Handlers map[string]*common.HTTPHandler
 
-	//JSONRPCServer      *httptest.Server
-	//TokenJSONRPCServer *httptest.Server
-	//WebSocketServer    *httptest.Server
+	JSONRPCServer      *httptest.Server
+	TokenJSONRPCServer *httptest.Server
+	WebSocketServer    *httptest.Server
 	Cli  *rpc.JSONRPCClient // clients for embedded VMs
-	//	Tcli *trpc.JSONRPCClient
+	Tcli *rpc.JSONRPCClient
 }
 
+
+func  Genesis(ctx context.Context) (*genesis.Genesis, error) {
+	var resp any 
+	var requester requester.EndpointRequester
+
+	err := requester.SendRequest(
+		ctx,
+		"genesis",
+		nil,
+		resp,
+	)
+	if err != nil {
+		return nil, err
+	}
+	cli.g = resp.Genesis
+	return resp.Genesis, nil
+}
+
+
 func (i *Instance) VerifyGenesisAllocation() {
-	cli := i.Tcli
+	cli := i.Cli
 	g, err := cli.Genesis(context.Background())
 	gomega.Ω(err).Should(gomega.BeNil())
 
