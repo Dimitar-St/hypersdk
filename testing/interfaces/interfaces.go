@@ -18,6 +18,12 @@ import (
 
 type CustomGenesis interface{}
 
+
+type CustomRPCClient interface {
+	Genesis(ctx context.Context) (*genesis.Genesis, error) 
+
+}
+
 type Instance interface {
 	VerifyGenesisAllocation()
 	Initialize(

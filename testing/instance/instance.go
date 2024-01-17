@@ -5,10 +5,12 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
-	"github.com/ava-labs/avalanchego/api/metrics"
 	"net/http/httptest"
+
+	"github.com/ava-labs/avalanchego/api/metrics"
 	"github.com/ava-labs/avalanchego/database/manager"
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/snow"
@@ -19,6 +21,7 @@ import (
 	"github.com/ava-labs/avalanchego/utils/set"
 	avago_version "github.com/ava-labs/avalanchego/version"
 	"github.com/ava-labs/avalanchego/vms/platformvm/warp"
+	"github.com/ava-labs/hypersdk/examples/tokenvm/genesis"
 	"github.com/ava-labs/hypersdk/requester"
 	"github.com/ava-labs/hypersdk/rpc"
 	_ "github.com/ava-labs/hypersdk/testing/interfaces"
@@ -32,6 +35,8 @@ var (
 
 	RequestTimeout time.Duration
 	Vms            int
+
+	VMName string
 
 	newController func() *vm.VM
 )
@@ -67,21 +72,35 @@ type Instance struct {
 	NodeID   ids.NodeID
 	Vm       *vm.VM
 	ToEngine chan common.Message
-	Handlers map[string]*common.HTTPHandler
 
-	JSONRPCServer      *httptest.Server
-	TokenJSONRPCServer *httptest.Server
-	WebSocketServer    *httptest.Server
-	Cli  *rpc.JSONRPCClient // clients for embedded VMs
-	Tcli *rpc.JSONRPCClient
+	JSONRPCServer     *httptest.Server
+	BaseJSONRPCServer *httptest.Server
+	WebSocketServer   *httptest.Server
+	Cli               *rpc.JSONRPCClient // clients for embedded VMs
+	Tcli              *rpc.JSONRPCClient
+	CCli		   customRequester 
 }
 
+type customRequester struct {
+	requester *requester.EndpointRequester
 
-func  Genesis(ctx context.Context) (*genesis.Genesis, error) {
-	var resp any 
+	networkID uint32
+	chainID   ids.ID
+}
+
+// Just a form of RPC Client
+func newCustomRequester(uri string, networkID uint32, chainID ids.ID) customRequester {
+	uri = strings.TrimSuffix(uri, "/")
+	uri += rpc.JSONRPCEndpoint
+	req := requester.New(uri, VMName)
+	return customRequester{req, networkID, chainID }
+}
+
+func (c *customRequester) Genesis(ctx context.Context) (*genesis.Genesis, error) {
+	var resp any
 	var requester requester.EndpointRequester
 
-	err := requester.SendRequest(
+	err := c.requester.SendRequest(
 		ctx,
 		"genesis",
 		nil,
@@ -90,19 +109,35 @@ func  Genesis(ctx context.Context) (*genesis.Genesis, error) {
 	if err != nil {
 		return nil, err
 	}
-	cli.g = resp.Genesis
-	return resp.Genesis, nil
+	return resp.(*genesis.Genesis), nil
+}
+
+type BalanceArgs struct{Address string}
+
+type BalanceReply struct{Amount uint64}
+
+func (c *customRequester) Balance(ctx context.Context, addr string) (uint64, error) {
+	var resp = new(BalanceReply) 
+	err := c.requester.SendRequest(
+		ctx,
+		"balance",
+		&BalanceArgs{	
+			Address: addr,
+		},
+		resp,
+	)
+	return resp.Amount, err
 }
 
 
 func (i *Instance) VerifyGenesisAllocation() {
-	cli := i.Cli
+	cli := i.CCli
 	g, err := cli.Genesis(context.Background())
 	gomega.Ω(err).Should(gomega.BeNil())
 
 	csupply := uint64(0)
 	for _, alloc := range g.CustomAllocation {
-		balance, err := cli.Balance(context.Background(), alloc.Address, ids.Empty)
+		balance, err := cli.Balance(context.Background(), alloc.Address)
 		gomega.Ω(err).Should(gomega.BeNil())
 		gomega.Ω(balance).Should(gomega.Equal(alloc.Balance))
 		csupply += alloc.Balance
@@ -117,7 +152,7 @@ func (i *Instance) VerifyGenesisAllocation() {
 	gomega.Ω(warp).Should(gomega.BeFalse())
 }
 
-func (i *Instance) Initialize(app appSender, genesisBytes []byte, configBytes []byte) {
+func (i *Instance) Initialize(app appSender, genesisBytes []byte, configBytes []byte, customHandler string, newCustomRPCCLient func()) {
 	nodeID := ids.GenerateTestNodeID()
 	sk, err := bls.NewSecretKey()
 	gomega.Expect(err).Should(gomega.BeNil())
@@ -158,7 +193,7 @@ func (i *Instance) Initialize(app appSender, genesisBytes []byte, configBytes []
 		configBytes,
 		i.ToEngine,
 		nil,
-		app,
+		&app,
 	)
 	gomega.Expect(err).Should(gomega.BeNil())
 
@@ -166,12 +201,22 @@ func (i *Instance) Initialize(app appSender, genesisBytes []byte, configBytes []
 	hd, err = v.CreateHandlers(context.TODO())
 	gomega.Expect(err).Should(gomega.BeNil())
 
+	customRPCHandler := httptest.NewServer(hd[customHandler].Handler)
+	webSocketHandler := httptest.NewServer(hd[rpc.WebSocketEndpoint].Handler)
+	jsonRPCHandler := httptest.NewServer(hd[rpc.JSONRPCEndpoint].Handler)
+
 	i.ChainID = snowCtx.ChainID
 	i.NodeID = snowCtx.NodeID
+
 	i.Vm = v
 	i.ToEngine = toEngine
-	i.Handlers = hd
-	i.Cli = i.Cli
+	
+	i.Cli = rpc.NewJSONRPCClient(jsonRPCHandler.URL)
+	i.CCli = newCustomRequester(customHandler, snowCtx.NetworkID, snowCtx.ChainID)
+	
+	i.BaseJSONRPCServer = customRPCHandler
+	i.WebSocketServer = webSocketHandler
+	i.JSONRPCServer = jsonRPCHandler
 
 	v.ForceReady()
 }
@@ -181,6 +226,8 @@ func (i *Instance) SetControlller(ctrl func() *vm.VM) {
 }
 
 // Set up httptest.Server which contains the genesis block
+
+var _ common.AppSender = (*appSender)(nil)
 
 type appSender struct {
 	next      int
